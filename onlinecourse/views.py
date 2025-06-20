@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.http import HttpResponseRedirect
 from .models import Course, Enrollment, Question, Choice, Submission
 from django.contrib.auth.models import User
@@ -6,6 +5,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.views import generic
 from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.decorators import login_required
 import logging
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -53,6 +53,24 @@ def login_request(request):
     else:
         return render(request, 'onlinecourse/user_login_bootstrap.html', context)
 
+@login_required
+def submit(request, course_id):
+    user = request.user
+    course = get_object_or_404(Course, pk=course_id)
+    
+    enrollment = Enrollment.objects.get(user=user, course=course)
+    
+    submission = Submission.objects.create(enrollment=enrollment)
+    
+    selected_choice_ids = extract_answers(request)
+    
+    for choice_id in selected_choice_ids:
+        choice = Choice.objects.get(id=choice_id)
+        submission.choices.add(choice)
+    
+    submission.save()
+    
+    return redirect('onlinecourse:exam_result', course_id=course.id, submission_id=submission.id)
 
 def logout_request(request):
     logout(request)
